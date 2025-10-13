@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Button Glow Animation */
+button {
+  position: relative;
+  overflow: hidden;
+}
+
+button::before {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.35), transparent 70%);
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+button:hover::before {
+  opacity: 1;
+}
+
+/* Input Bottom Glow Animation */
+input:focus {
+  box-shadow: 0 0px 12px -2px rgba(56, 189, 248, 0.6); /* sky-blue glow */
+  border-bottom-color: #38bdf8; /* Tailwind sky-400 */
+  transition: all 0.3s ease;
+}
