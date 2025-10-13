@@ -1,14 +1,48 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState ,useEffect} from "react";
 import {FaEye, FaEyeSlash } from "react-icons/fa";
 import "./login.css";
+import { login ,checkAuth} from "@/api/loginapi";
+import Home from "../home/page";
+import { useRouter } from "next/navigation";
 
+//jwt responsive should be stored in cookies
 function Login() {
   const [showpassword,setShowpassword]=useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
+  const router = useRouter();  
 
   function togglepass(){
     setShowpassword(!showpassword);
     }
+
+  useEffect(() => {
+    async function check() {
+      const res = await checkAuth();
+      if (res.valid) {
+        alert(`Already logged in as ${res.username} (${res.role})`);
+        router.push('/home'); // Redirect to home page
+      }
+      setAuthChecked(true);
+    }
+    check();
+  }, []);
+
+  async function log(e:React.FormEvent){
+    e.preventDefault();
+    const username=(document.getElementById("username") as HTMLInputElement).value;
+    const password=(document.getElementById("password") as HTMLInputElement).value;
+    try{
+      const response=await login(username,password);
+      console.log(response);
+      alert("Login Successful");
+    }
+    catch(err){
+      alert("Login Failed");
+      console.log(err);
+    }
+
+  }
 
     
   return (
@@ -22,7 +56,7 @@ function Login() {
           />
         </div>
 
-        <form className="flex flex-col gap-6">
+        <form className="flex flex-col gap-6" onSubmit={log}>
           {/* Username */}
           <div className="relative">
             <input
