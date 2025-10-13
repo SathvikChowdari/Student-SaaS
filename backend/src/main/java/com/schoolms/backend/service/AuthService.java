@@ -17,9 +17,9 @@ public class AuthService {
     private BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     // Create a new user with hashed password
-    public User createUser(String username, String password) {
+    public User createUser(String username, String password, String role) {
         String hashedPassword = passwordEncoder.encode(password);
-        User user = new User(username, hashedPassword);
+        User user = new User(username, hashedPassword, role);
         return userRepository.save(user);
     }
 
