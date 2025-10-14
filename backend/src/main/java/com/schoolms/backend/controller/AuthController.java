@@ -11,6 +11,8 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.Map;
 
 @CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true")
@@ -24,6 +26,16 @@ public class AuthController {
     @Autowired
     private JwtUtil jwtUtil;
 
+    private ResponseEntity<Map<String, Object>> buildResponse(String message, boolean success, Object data,
+            HttpStatus status) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("message", message);
+        response.put("timestamp", LocalDateTime.now().toString());
+        response.put("success", success);
+        response.put("data", data);
+        return new ResponseEntity<>(response, status);
+    }
+
     // ✅ LOGIN endpoint
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody Map<String, String> loginData, HttpServletResponse response) {
@@ -31,12 +43,13 @@ public class AuthController {
         String password = loginData.get("password");
 
         if (username == null || username.isEmpty() || password == null || password.isEmpty()) {
-            return ResponseEntity.badRequest().body("Username and password must be provided");
+            return buildResponse("Username and password must be provided", false, null, HttpStatus.BAD_REQUEST);
         }
+
         User user = authService.findByUsername(username);
         boolean isValid = authService.login(username, password);
+
         if (isValid) {
-            // Generate JWT token
             String token = jwtUtil.generateToken(username, user.getRole());
 
             // Set JWT as HttpOnly cookie
@@ -44,17 +57,17 @@ public class AuthController {
             cookie.setHttpOnly(true);
             cookie.setPath("/");
             cookie.setMaxAge(7 * 24 * 60 * 60); // 7 days
-            cookie.setSecure(false); // Set to true in production with HTTPS
+            cookie.setSecure(false); // true in production (HTTPS)
             response.addCookie(cookie);
 
-            Map<String, String> res = Map.of(
+            Map<String, Object> data = Map.of(
                     "role", user.getRole(),
-                    "username", user.getUsername()
-            );
-            return ResponseEntity.ok(res);
+                    "token", token,
+                    "username", user.getUsername());
+
+            return buildResponse("Login successful", true, data, HttpStatus.OK);
         } else {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body("Invalid username or password");
+            return buildResponse("Invalid username or password", false, null, HttpStatus.UNAUTHORIZED);
         }
     }
 
@@ -63,8 +76,9 @@ public class AuthController {
     public ResponseEntity<?> verify(HttpServletRequest request) {
         Cookie[] cookies = request.getCookies();
         if (cookies == null) {
-            return ResponseEntity.ok(Map.of("valid", false));
+            return buildResponse("No token found", false, Map.of("valid", false), HttpStatus.OK);
         }
+
         String token = null;
         for (Cookie cookie : cookies) {
             if ("jwt".equals(cookie.getName())) {
@@ -72,23 +86,26 @@ public class AuthController {
                 break;
             }
         }
+
         if (token == null) {
-            return ResponseEntity.ok(Map.of("valid", false));
+            return buildResponse("No token found", false, Map.of("valid", false), HttpStatus.OK);
         }
+
         try {
             String username = jwtUtil.extractUsername(token);
             String role = jwtUtil.extractRole(token);
+
             if (jwtUtil.isTokenValid(token, username)) {
-                return ResponseEntity.ok(Map.of(
+                Map<String, Object> data = Map.of(
                         "valid", true,
                         "username", username,
-                        "role", role
-                ));
+                        "role", role);
+                return buildResponse("Token is valid", true, data, HttpStatus.OK);
             } else {
-                return ResponseEntity.ok(Map.of("valid", false));
+                return buildResponse("Invalid token", false, Map.of("valid", false), HttpStatus.OK);
             }
         } catch (Exception e) {
-            return ResponseEntity.ok(Map.of("valid", false));
+            return buildResponse("Token validation failed", false, Map.of("valid", false), HttpStatus.OK);
         }
     }
 
@@ -99,8 +116,9 @@ public class AuthController {
         cookie.setHttpOnly(true);
         cookie.setPath("/");
         cookie.setMaxAge(0); // Expire immediately
-        cookie.setSecure(false); // Set to true in production with HTTPS
+        cookie.setSecure(false); // true in production
         response.addCookie(cookie);
-        return ResponseEntity.ok(Map.of("message", "Logged out"));
+
+        return buildResponse("Logged out successfully", true, null, HttpStatus.OK);
     }
 }
