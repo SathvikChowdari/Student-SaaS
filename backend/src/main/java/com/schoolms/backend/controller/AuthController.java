@@ -3,13 +3,13 @@ package com.schoolms.backend.controller;
 import com.schoolms.backend.entity.User;
 import com.schoolms.backend.service.AuthService;
 import com.schoolms.backend.util.JwtUtil;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import jakarta.servlet.http.Cookie;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -26,8 +26,7 @@ public class AuthController {
     @Autowired
     private JwtUtil jwtUtil;
 
-    private ResponseEntity<Map<String, Object>> buildResponse(String message, boolean success, Object data,
-            HttpStatus status) {
+    private ResponseEntity<Map<String, Object>> buildResponse(String message, boolean success, Object data, HttpStatus status) {
         Map<String, Object> response = new HashMap<>();
         response.put("message", message);
         response.put("timestamp", LocalDateTime.now().toString());
@@ -36,7 +35,7 @@ public class AuthController {
         return new ResponseEntity<>(response, status);
     }
 
-    // ✅ LOGIN endpoint
+    // ✅ LOGIN endpoint — issues JWT cookie
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody Map<String, String> loginData, HttpServletResponse response) {
         String username = loginData.get("username");
@@ -57,13 +56,13 @@ public class AuthController {
             cookie.setHttpOnly(true);
             cookie.setPath("/");
             cookie.setMaxAge(7 * 24 * 60 * 60); // 7 days
-            cookie.setSecure(false); // true in production (HTTPS)
+            cookie.setSecure(false); // true for HTTPS
             response.addCookie(cookie);
 
             Map<String, Object> data = Map.of(
                     "role", user.getRole(),
-                    "token", token,
-                    "username", user.getUsername());
+                    "username", user.getUsername()
+            );
 
             return buildResponse("Login successful", true, data, HttpStatus.OK);
         } else {
@@ -71,22 +70,10 @@ public class AuthController {
         }
     }
 
-    // ✅ VERIFY endpoint (checks JWT cookie)
+    // ✅ VERIFY endpoint — checks cookie JWT validity
     @GetMapping("/verify")
     public ResponseEntity<?> verify(HttpServletRequest request) {
-        Cookie[] cookies = request.getCookies();
-        if (cookies == null) {
-            return buildResponse("No token found", false, Map.of("valid", false), HttpStatus.OK);
-        }
-
-        String token = null;
-        for (Cookie cookie : cookies) {
-            if ("jwt".equals(cookie.getName())) {
-                token = cookie.getValue();
-                break;
-            }
-        }
-
+        String token = extractJwtFromCookies(request);
         if (token == null) {
             return buildResponse("No token found", false, Map.of("valid", false), HttpStatus.OK);
         }
@@ -96,10 +83,7 @@ public class AuthController {
             String role = jwtUtil.extractRole(token);
 
             if (jwtUtil.isTokenValid(token, username)) {
-                Map<String, Object> data = Map.of(
-                        "valid", true,
-                        "username", username,
-                        "role", role);
+                Map<String, Object> data = Map.of("valid", true, "username", username, "role", role);
                 return buildResponse("Token is valid", true, data, HttpStatus.OK);
             } else {
                 return buildResponse("Invalid token", false, Map.of("valid", false), HttpStatus.OK);
@@ -109,16 +93,26 @@ public class AuthController {
         }
     }
 
-    // ✅ LOGOUT endpoint (clears JWT cookie)
+    // ✅ LOGOUT endpoint — clears cookie
     @PostMapping("/logout")
     public ResponseEntity<?> logout(HttpServletResponse response) {
         Cookie cookie = new Cookie("jwt", "");
         cookie.setHttpOnly(true);
         cookie.setPath("/");
-        cookie.setMaxAge(0); // Expire immediately
-        cookie.setSecure(false); // true in production
+        cookie.setMaxAge(0);
+        cookie.setSecure(false);
         response.addCookie(cookie);
 
         return buildResponse("Logged out successfully", true, null, HttpStatus.OK);
+    }
+
+    private String extractJwtFromCookies(HttpServletRequest request) {
+        if (request.getCookies() == null) return null;
+        for (Cookie cookie : request.getCookies()) {
+            if ("jwt".equals(cookie.getName())) {
+                return cookie.getValue();
+            }
+        }
+        return null;
     }
 }

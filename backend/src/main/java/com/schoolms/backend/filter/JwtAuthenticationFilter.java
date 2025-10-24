@@ -5,6 +5,7 @@ import com.schoolms.backend.service.UserService;
 import com.schoolms.backend.util.JwtUtil;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,55 +27,51 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Autowired
     private UserService userService;
 
+    private String extractJwtFromCookies(HttpServletRequest request) {
+        if (request.getCookies() == null) return null;
+        for (Cookie cookie : request.getCookies()) {
+            if ("jwt".equals(cookie.getName())) {
+                return cookie.getValue();
+            }
+        }
+        return null;
+    }
+
     @Override
     protected void doFilterInternal(HttpServletRequest request,
-            HttpServletResponse response,
-            FilterChain filterChain) throws ServletException, IOException {
+                                    HttpServletResponse response,
+                                    FilterChain filterChain) throws ServletException, IOException {
 
-        System.out.println("=== JWT Filter hit for URL: " + request.getRequestURI());        
-        // 1️⃣ Get Authorization header
-        final String authHeader = request.getHeader("Authorization");
-        System.out.println("Request: " + request);
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            filterChain.doFilter(request, response);
+            return;
+        }
 
-        System.out.println("Authorization header: " + authHeader);
+        String token = extractJwtFromCookies(request);
 
-        String token = null;
-        String username = null;
-
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            token = authHeader.substring(7); // Remove "Bearer " prefix
-            System.out.println("Extracted token: " + token);
+        if (token != null) {
             try {
-                username = jwtUtil.extractUsername(token);
-                System.out.println("Extracted username: " + username);
-            } catch (Exception e) {
-                logger.warn("JWT token is invalid: " + e.getMessage());
-                System.out.println("Error extracting username from JWT: " + e.getMessage());
+                String username = jwtUtil.extractUsername(token);
+                if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                    User user = userService.findAllUsers().stream()
+                            .filter(u -> u.getUsername().equals(username))
+                            .findFirst()
+                            .orElse(null);
+
+                    if (user != null && jwtUtil.isTokenValid(token, username)) {
+                        UsernamePasswordAuthenticationToken authToken =
+                                new UsernamePasswordAuthenticationToken(
+                                        username,
+                                        null,
+                                        Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + user.getRole()))
+                                );
+                        SecurityContextHolder.getContext().setAuthentication(authToken);
+                    }
+                }
+            } catch (Exception ignored) {
             }
         }
 
-        // 2️⃣ Validate token and set authentication in context
-        if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            final String finalUsername = username;
-
-            User user = userService.findAllUsers().stream()
-                    .filter(u -> u.getUsername().equals(finalUsername))
-                    .findFirst()
-                    .orElse(null);
-
-            if (user != null && jwtUtil.isTokenValid(token, user.getUsername())) {
-                // Create authentication token with user's role
-                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                        username,
-                        null,
-                        Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + user.getRole())));
-
-                SecurityContextHolder.getContext().setAuthentication(authToken);
-                System.out.println("✅ Authentication set successfully for user: " + username);
-            }
-        }
-
-        // 3️⃣ Continue the filter chain
         filterChain.doFilter(request, response);
     }
 }
