@@ -1,5 +1,4 @@
 package com.schoolms.backend.service;
-
 import com.schoolms.backend.entity.User;
 import com.schoolms.backend.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;

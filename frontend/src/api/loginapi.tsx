@@ -1,29 +1,38 @@
 // src/api/auth.ts
 import axiosClient from "./axioscleint";
 
-/**
- * LOGIN — sends username/password, backend sets JWT cookie automatically.
- */
+type ApiEnvelope<T> = {
+  data: T;
+};
+
+export type AuthSession = {
+  valid: boolean;
+  username?: string;
+  role?: string;
+};
+
+type LoginResult = {
+  username: string;
+  role: string;
+};
+
 export async function login(username: string, password: string) {
-  const res = await axiosClient.post("/auth/login", { username, password });
-  return res.data; // contains { role }
+  const res = await axiosClient.post<ApiEnvelope<LoginResult>>("/auth/login", {
+    username,
+    password,
+  });
+  return res.data.data;
 }
 
-/**
- * CHECK AUTH — verifies if user is logged in using existing cookie.
- */
-export async function checkAuth() {
+export async function checkAuth(): Promise<AuthSession> {
   try {
-    const res = await axiosClient.get("/auth/verify"); // you'll add this endpoint soon
-    return res.data; // e.g. { valid: true, username: "charith", role: "ADMIN" }
-  } catch (err) {
+    const res = await axiosClient.get<ApiEnvelope<AuthSession>>("/auth/verify");
+    return res.data.data;
+  } catch {
     return { valid: false };
   }
 }
 
-/**
- * LOGOUT — clears the JWT cookie from backend.
- */
 export async function logout() {
-  await axiosClient.post("/auth/logout"); // backend will clear cookie
+  await axiosClient.post("/auth/logout");
 }

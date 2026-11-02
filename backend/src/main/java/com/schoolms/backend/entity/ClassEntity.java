@@ -3,6 +3,7 @@ package com.schoolms.backend.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import java.util.List;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Entity
 @Table(name = "classes")
@@ -22,5 +23,6 @@ public class ClassEntity {
     private Teacher classTeacher;
 
     @OneToMany(mappedBy = "classEntity")
+    @JsonIgnore
     private List<Student> students;
 }

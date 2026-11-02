@@ -1,332 +1,301 @@
 "use client";
-import React, { useState, useRef, useEffect } from "react";
+
+import { useEffect, useState } from "react";
+import type { Dispatch, SetStateAction } from "react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import {
-  FaBars,
-  FaHome,
-  FaUser,
-  FaCog,
-  FaSignOutAlt,
-  FaUserGraduate,
-} from "react-icons/fa";
+  BookOpen,
+  CalendarDays,
+  GraduationCap,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  School,
+  Users,
+  UserRound,
+  UserRoundCheck,
+  X,
+} from "lucide-react";
+import { checkAuth, logout } from "@/api/loginapi";
+import type { AuthSession } from "@/api/loginapi";
 
-function SidebarContent({ collapsed, setCollapsed }: { collapsed: boolean; setCollapsed: React.Dispatch<React.SetStateAction<boolean>> }) {
-  const user = {
-    name: "John Doe",
-    email: "john.doe@email.com",
-    avatar: "https://randomuser.me/api/portraits/men/32.jpg",
-  };
+type NavItem = {
+  label: string;
+  href: string;
+  icon: typeof LayoutDashboard;
+};
 
-  const [showProfile, setShowProfile] = useState(false);
-  const profileRef = useRef<HTMLDivElement | null>(null);
+const homeItem: NavItem = {
+  label: "Overview",
+  href: "/home",
+  icon: LayoutDashboard,
+};
 
-  useEffect(() => {
-    const onDocClick = (e: MouseEvent) => {
-      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
-        setShowProfile(false);
-      }
-    };
-    if (showProfile) document.addEventListener("mousedown", onDocClick);
-    return () => document.removeEventListener("mousedown", onDocClick);
-  }, [showProfile]);
+const navigationByRole: Record<string, NavItem[]> = {
+  ADMIN: [
+    homeItem,
+    { label: "Users", href: "/home/users", icon: Users },
+    { label: "Students", href: "/home/student", icon: GraduationCap },
+    { label: "Classes", href: "/home/classes", icon: School },
+    { label: "Subjects", href: "/home/subject", icon: BookOpen },
+    { label: "Attendance", href: "/home/attendence", icon: UserRoundCheck },
+    { label: "Academic Years", href: "/home/academicyear", icon: CalendarDays },
+  ],
+  TEACHER: [
+    homeItem,
+    { label: "Students", href: "/home/student", icon: GraduationCap },
+    { label: "Classes", href: "/home/classes", icon: School },
+    { label: "Subjects", href: "/home/subject", icon: BookOpen },
+    { label: "Attendance", href: "/home/attendence", icon: UserRoundCheck },
+  ],
+  CLERK: [
+    homeItem,
+    { label: "Students", href: "/home/student", icon: GraduationCap },
+    { label: "Classes", href: "/home/classes", icon: School },
+    { label: "Attendance", href: "/home/attendence", icon: UserRoundCheck },
+  ],
+  USER: [homeItem],
+};
 
-  const handleClick = (label: string) => {
-    switch (label) {
-      case "Home":
-        alert("Home not yet created");
-        break;
-      case "Users":
-        window.location.href = "/home/users";
-        break;
-      case "Settings":
-        alert("Settings not yet created");
-        break;
-      case "Logout":
-        alert("Logout not implemented yet");
-        break;
-    }
-  };
+function getNavigation(role?: string): NavItem[] {
+  const normalizedRole = role?.toUpperCase().replace(/^ROLE_/, "");
+  return navigationByRole[normalizedRole ?? ""] ?? [homeItem];
+}
 
-  const menuItems = [
-    { icon: <FaHome className="text-2xl" />, label: "Home" },
-    { icon: <FaUser className="text-2xl" />, label: "Users" },
-    { icon: <FaCog className="text-2xl" />, label: "Settings" },
-  ];
+function isActiveRoute(pathname: string, href: string) {
+  return href === "/home" ? pathname === href : pathname.startsWith(href);
+}
+
+function SidebarContent({
+  collapsed,
+  setCollapsed,
+  items,
+  username,
+  role,
+  onLogout,
+}: {
+  collapsed: boolean;
+  setCollapsed: Dispatch<SetStateAction<boolean>>;
+  items: NavItem[];
+  username: string;
+  role: string;
+  onLogout: () => void;
+}) {
+  const pathname = usePathname();
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b bg-white">
+    <div className="flex h-full flex-col">
+      <div className="flex items-center justify-between border-b p-4">
         {!collapsed && (
-          <div className="flex items-center gap-2">
-            <FaUserGraduate className="text-sky-600 text-2xl" />
-            <span className="font-bold text-xl text-sky-600 tracking-wide">Student</span>
-          </div>
+          <Link href="/home" className="flex items-center gap-2 text-sky-700">
+            <GraduationCap aria-hidden="true" size={25} />
+            <span className="font-bold text-lg">School Portal</span>
+          </Link>
         )}
-        <div
-          className="p-2 rounded hover:bg-gray-100 cursor-pointer"
-          title={collapsed ? "Expand Sidebar" : "Collapse Sidebar"}
-          onClick={() => setCollapsed(!collapsed)}
+        <button
+          type="button"
+          className="rounded p-2 text-gray-600 hover:bg-gray-100"
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          onClick={() => setCollapsed((value) => !value)}
         >
-          <FaBars />
-        </div>
+          {collapsed ? <Menu size={20} /> : <X size={20} />}
+        </button>
       </div>
 
-      {/* Menu */}
-      {!collapsed ? (
-        <div className="flex flex-col flex-1 overflow-y-auto">
-          <div className="p-3 space-y-2">
-            {menuItems.map((item) => (
-              <button
-                key={item.label}
-                onClick={() => handleClick(item.label)}
-                className="flex items-center gap-3 w-full px-4 py-3 rounded-lg text-sky-500 hover:bg-sky-100 hover:text-sky-700 transition-all"
-              >
-                {item.icon}
-                <span className="font-semibold text-lg">{item.label}</span>
-              </button>
-            ))}
+      <nav aria-label="Main navigation" className="flex-1 overflow-y-auto p-3">
+        <ul className="space-y-1">
+          {items.map(({ label, href, icon: Icon }) => {
+            const active = isActiveRoute(pathname, href);
+            return (
+              <li key={href}>
+                <Link
+                  href={href}
+                  aria-label={label}
+                  aria-current={active ? "page" : undefined}
+                  title={collapsed ? label : undefined}
+                  className={`flex items-center gap-3 rounded-lg px-3 py-3 transition ${
+                    active
+                      ? "bg-sky-100 text-sky-800"
+                      : "text-gray-700 hover:bg-sky-50 hover:text-sky-700"
+                  } ${collapsed ? "justify-center" : ""}`}
+                >
+                  <Icon aria-hidden="true" size={21} />
+                  {!collapsed && <span className="font-medium">{label}</span>}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
 
-            <hr className="my-2" />
-
-            <button
-              onClick={() => handleClick("Logout")}
-              className="flex items-center gap-3 w-full px-4 py-3 rounded-lg text-red-500 hover:bg-red-100 hover:text-red-600 transition-all"
-            >
-              <FaSignOutAlt className="text-2xl" />
-              <span className="font-semibold text-lg">Logout</span>
-            </button>
-          </div>
-
-          {/* Footer */}
-          <div className="mt-auto p-4 border-t bg-white relative">
-            <div
-              className="flex items-center gap-3 cursor-pointer"
-              onClick={() => setShowProfile((v) => !v)}
-            >
-              <img src={user.avatar} className="w-9 h-9 rounded-full border" alt="avatar" />
-              <div>
-                <div className="text-sky-600 font-medium">{user.name}</div>
-                <div className="text-xs text-gray-500">{user.email}</div>
-              </div>
-            </div>
-
-            {showProfile && (
-              <div
-                ref={profileRef}
-                className="fixed left-18 bottom-15 w-72 bg-white rounded-xl shadow-2xl border p-6 flex flex-col gap-4"
-              >
-                <div className="flex items-center gap-3">
-                  <img src={user.avatar} className="w-12 h-12 rounded-full border" alt="avatar" />
-                  <div>
-                    <div className="font-semibold text-base text-sky-600">{user.name}</div>
-                    <div className="text-xs text-gray-500">{user.email}</div>
-                  </div>
-                </div>
-                <hr />
-                <button className="w-full py-2 bg-sky-500 text-white rounded-lg hover:bg-sky-600 transition">Logout</button>
-                <button className="w-full py-2 border rounded-lg hover:bg-gray-100 transition">Login with another account</button>
-              </div>
-            )}
-          </div>
-        </div>
-      ) : (
-        /* Collapsed Sidebar */
-        <div className="flex flex-col justify-between items-center flex-1 py-4">
-          <div className="flex flex-col items-center gap-3">
-            {menuItems.map((item) => (
-              <button
-                key={item.label}
-                onClick={() => handleClick(item.label)}
-                className="p-3 rounded-lg text-sky-500 hover:bg-gray-100 hover:text-sky-600 transition"
-                title={item.label}
-              >
-                {item.icon}
-              </button>
-            ))}
-
-            <hr className="w-10 border-gray-200 my-3" />
-
-            <button
-              onClick={() => handleClick("Logout")}
-              className="p-3 rounded-lg hover:bg-gray-100 hover:text-red-600 transition"
-              title="Logout"
-            >
-              <FaSignOutAlt className="text-xl" />
-            </button>
-          </div>
-
-          <div
-            className="cursor-pointer"
-            onClick={() => setShowProfile((v) => !v)}
-          >
-            <img src={user.avatar} className="w-9 h-9 rounded-full border" alt="avatar" />
-          </div>
-
-          {showProfile && (
-            <div
-              ref={profileRef}
-              className="fixed left-[80px] bottom-10 w-72 bg-white rounded-xl shadow-2xl border p-6 flex flex-col gap-4"
-            >
-              <div className="flex items-center gap-3">
-                <img src={user.avatar} className="w-12 h-12 rounded-full border" alt="avatar" />
-                <div>
-                  <div className="font-semibold text-base text-gray-900">{user.name}</div>
-                  <div className="text-xs text-gray-500">{user.email}</div>
-                </div>
-              </div>
-              <hr />
-              <button className="w-full py-2 bg-sky-500 text-white rounded-lg hover:bg-sky-600 transition">Logout</button>
-              <button className="w-full py-2 border rounded-lg hover:bg-gray-100 transition">Login with another account</button>
+      <div className="border-t p-3">
+        <div className={`mb-3 flex items-center gap-3 ${collapsed ? "justify-center" : ""}`}>
+          <UserRound aria-hidden="true" className="shrink-0 text-sky-700" size={34} />
+          {!collapsed && (
+            <div className="min-w-0">
+              <p className="truncate font-medium text-gray-800">{username}</p>
+              <p className="text-xs capitalize text-gray-500">{role.toLowerCase()}</p>
             </div>
           )}
         </div>
-      )}
+        <button
+          type="button"
+          onClick={onLogout}
+          title={collapsed ? "Log out" : undefined}
+          className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-red-600 hover:bg-red-50 ${
+            collapsed ? "justify-center" : ""
+          }`}
+        >
+          <LogOut aria-hidden="true" size={20} />
+          {!collapsed && <span className="font-medium">Log out</span>}
+        </button>
+      </div>
     </div>
   );
 }
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const [collapsed, setCollapsed] = useState(false);
-  const [showDropdown, setShowDropdown] = useState(false);
+  const [showAccountMenu, setShowAccountMenu] = useState(false);
+  const [session, setSession] = useState<AuthSession | null>(null);
+  const [logoutError, setLogoutError] = useState("");
+  const router = useRouter();
+  const pathname = usePathname();
+  const username = session?.username ?? "Account";
+  const role = session?.role?.toUpperCase().replace(/^ROLE_/, "") ?? "USER";
+  const navigation = getNavigation(session?.role);
+
+  useEffect(() => {
+    let active = true;
+    checkAuth().then((auth) => {
+      if (active) setSession(auth);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    setShowAccountMenu(false);
+  }, [pathname]);
+
+  async function handleLogout() {
+    setLogoutError("");
+    try {
+      await logout();
+      router.replace("/login");
+    } catch (error) {
+      console.error("Logout failed:", error);
+      setLogoutError("Could not log out. Please try again.");
+    }
+  }
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-gray-50">
-      {/* Sidebar */}
-      <div
-        className={`transition-all duration-300 bg-white border-r shadow-md ${
-          collapsed ? "w-15" : "w-45"
-        } flex-shrink-0`}
+      <aside
+        className={`shrink-0 border-r bg-white shadow-sm transition-all duration-300 ${
+          collapsed ? "w-20" : "w-64"
+        }`}
       >
-        <SidebarContent collapsed={collapsed} setCollapsed={setCollapsed} />
-      </div>
+        <SidebarContent
+          collapsed={collapsed}
+          setCollapsed={setCollapsed}
+          items={navigation}
+          username={username}
+          role={role}
+          onLogout={handleLogout}
+        />
+      </aside>
 
-      {/* Main Section */}
-      <div className="flex flex-col flex-1 overflow-hidden">
-        {/* Navbar */}
-        <nav className="sticky top-0 z-40 w-full bg-white/90 backdrop-blur-md border-b shadow-sm">
-          <div className="px-6 py-3 flex items-center justify-between">
-            <div className="flex items-center gap-8">
-              <div className="flex items-center gap-2 cursor-pointer">
-                <FaUserGraduate className="text-sky-600 text-2xl" />
-                <h1 className="font-bold text-xl text-sky-600 tracking-wide">
-                  Student Portal
-                </h1>
-              </div>
-
-              <div className="hidden md:flex items-center gap-6">
-                {["Home", "Courses", "Dashboard", "Reports"].map((item) => (
-                  <button
-                    key={item}
-                    className="relative text-gray-700 hover:text-sky-600 font-medium transition group"
-                  >
-                    {item}
-                    <span className="absolute bottom-0 left-0 w-0 h-[2px] bg-sky-500 transition-all duration-300 group-hover:w-full"></span>
-                  </button>
-                ))}
-              </div>
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <header className="z-40 border-b bg-white/95 shadow-sm backdrop-blur">
+          <div className="flex min-h-16 items-center justify-between gap-4 px-4 md:px-6">
+            <div className="flex min-w-0 items-center gap-3">
+              <GraduationCap aria-hidden="true" className="shrink-0 text-sky-700" size={25} />
+              <h1 className="truncate font-bold text-lg text-sky-700 md:text-xl">
+                School Portal
+              </h1>
+              <nav aria-label="Quick navigation" className="ml-3 hidden items-center gap-4 overflow-x-auto lg:flex">
+                {navigation.map(({ label, href }) => {
+                  const active = isActiveRoute(pathname, href);
+                  return (
+                    <Link
+                      key={href}
+                      href={href}
+                      aria-current={active ? "page" : undefined}
+                      className={`whitespace-nowrap border-b-2 py-5 text-sm font-medium transition ${
+                        active
+                          ? "border-sky-600 text-sky-700"
+                          : "border-transparent text-gray-600 hover:text-sky-700"
+                      }`}
+                    >
+                      {label}
+                    </Link>
+                  );
+                })}
+              </nav>
             </div>
 
-            <div className="flex items-center gap-6">
-              {/* Search */}
-              <div className="relative hidden sm:block">
-                <input
-                  type="text"
-                  placeholder="Search..."
-                  className="pl-10 pr-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-sky-400 text-sm transition-all w-48 focus:w-64"
-                />
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-4 w-4 absolute left-3 top-3 text-gray-400"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M21 21l-4.35-4.35M11 18a7 7 0 100-14 7 7 0 000 14z"
-                  />
-                </svg>
-              </div>
-
-              {/* Notifications */}
-              <button className="relative p-2 rounded-full hover:bg-gray-100 transition" title="Notifications">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5 text-gray-600 hover:text-sky-600"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="1.8"
-                    d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 00-9.33-4.978M13 21a2 2 0 01-4 0"
-                  />
-                </svg>
-                <span className="absolute top-1 right-1 bg-red-500 text-white text-[10px] px-1 rounded-full">
-                  3
+            <div className="relative flex shrink-0 items-center gap-3">
+              {logoutError && (
+                <p role="alert" className="hidden text-sm text-red-600 md:block">
+                  {logoutError}
+                </p>
+              )}
+              <button
+                type="button"
+                aria-haspopup="menu"
+                aria-expanded={showAccountMenu}
+                onClick={() => setShowAccountMenu((value) => !value)}
+                className="flex items-center gap-2 rounded-lg p-2 text-left hover:bg-gray-100"
+              >
+                <UserRound aria-hidden="true" className="text-sky-700" size={28} />
+                <span className="hidden sm:block">
+                  <span className="block max-w-36 truncate text-sm font-semibold text-gray-800">
+                    {username}
+                  </span>
+                  <span className="block text-xs capitalize text-gray-500">
+                    {role.toLowerCase()}
+                  </span>
                 </span>
               </button>
 
-              {/* Profile */}
-              <div
-                className="relative"
-                onMouseEnter={() => setShowDropdown(true)}
-                onMouseLeave={() => setShowDropdown(false)}
-              >
-                <img
-                  src="https://randomuser.me/api/portraits/men/32.jpg"
-                  alt="profile"
-                  className="w-9 h-9 rounded-full border cursor-pointer hover:shadow-md transition"
-                />
-
-                {showDropdown && (
-                  <div className="absolute right-0 mt-3 w-60 bg-white border border-gray-200 rounded-xl shadow-xl animate-fade-in">
-                    <div className="p-4 flex flex-col gap-3">
-                      <div className="flex items-center gap-3 border-b pb-3">
-                        <img
-                          src="https://randomuser.me/api/portraits/men/32.jpg"
-                          alt="profile"
-                          className="w-10 h-10 rounded-full border object-cover"
-                        />
-                        <div>
-                          <p className="text-sm font-semibold text-sky-600">John Doe</p>
-                          <p className="text-xs text-gray-500">john.doe@email.com</p>
-                        </div>
-                      </div>
-
-                      <button className="w-full py-2 text-sm rounded-lg hover:bg-sky-100 text-left hover:text-sky-600 transition">
-                        View Profile
-                      </button>
-                      <button className="w-full py-2 text-sm rounded-lg hover:bg-sky-100 text-left hover:text-sky-600 transition">
-                        Settings
-                      </button>
-                      <button className="w-full py-2 text-sm text-red-600 rounded-lg hover:bg-red-100 text-left transition">
-                        Logout
-                      </button>
-                    </div>
+              {showAccountMenu && (
+                <div
+                  role="menu"
+                  className="absolute right-0 top-full mt-2 w-56 rounded-xl border border-gray-200 bg-white p-3 shadow-xl"
+                >
+                  <div className="border-b px-2 pb-3">
+                    <p className="truncate text-sm font-semibold text-gray-800">{username}</p>
+                    <p className="text-xs capitalize text-gray-500">{role.toLowerCase()}</p>
                   </div>
-                )}
-              </div>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={handleLogout}
+                    className="mt-2 flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+                  >
+                    <LogOut aria-hidden="true" size={17} />
+                    Log out
+                  </button>
+                  {logoutError && (
+                    <p role="alert" className="px-2 pt-2 text-xs text-red-600">
+                      {logoutError}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
+        </header>
 
-          <style>{`
-            .animate-fade-in {
-              animation: fadeIn 0.2s ease;
-            }
-            @keyframes fadeIn {
-              from { opacity: 0; transform: translateY(-10px); }
-              to { opacity: 1; transform: translateY(0); }
-            }
-          `}</style>
-        </nav>
-
-        {/* Main content */}
-        <main className="flex-1 overflow-y-auto p-3 bg-gray-50">{children}</main>
+        <main className="flex-1 overflow-y-auto bg-gray-50 p-3">{children}</main>
       </div>
     </div>
   );

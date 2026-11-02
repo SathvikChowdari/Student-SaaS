@@ -36,6 +36,7 @@ function Login() {
       const response=await login(username,password);
       console.log(response);
       alert("Login Successful");
+      router.push('/home');
     }
     catch(err){
       alert("Login Failed");

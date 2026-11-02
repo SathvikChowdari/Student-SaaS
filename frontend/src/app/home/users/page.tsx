@@ -27,6 +27,7 @@ export default function UsersPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [show, setShow] = useState(false);
   const [message, setMessage] = useState("");
+  const [newTeacher,setnewTeacher]=useState({employeeCode:"",subjectSpecialization:"",dateOfJoining:""});
 
   // Auto hide after few seconds
   useEffect(() => {
@@ -69,6 +70,10 @@ export default function UsersPage() {
       const res = await axiosInstance.post("/api/users/create", newUser);
       // alert(res.data.message);
       setMessage(res.data.message);
+      if(newUser.role==="TEACHER")
+      {
+        await createTeacher(res.data.userId);
+      }
       setShow(true);
       setNewUser({ username: "", password: "", role: "" });
       fetchUsers();
@@ -76,6 +81,20 @@ export default function UsersPage() {
       console.error("Error creating user:", err);
       // alert(err.response?.data || "Error creating user");
       setMessage(err.response?.data || "Error creating user");
+      setShow(true);
+    }
+  };
+  
+const createTeacher = async (userId: string) => {
+  try {
+    const res = await axiosInstance.post("/api/teachers/create", {
+      ...newTeacher,
+      userId: userId,
+    });
+      setnewTeacher({employeeCode:"",subjectSpecialization:"",dateOfJoining:""});
+    } catch (err: any) {
+      console.error("Error creating teacher:", err);
+      setMessage(err.response?.data || "Error creating teacher");
       setShow(true);
     }
   };
@@ -99,10 +118,14 @@ export default function UsersPage() {
   const updateUser = async (id: number, updatedData: { username: string; role: string }) => {
     try {
       const res = await axiosInstance.put(`/api/users/${id}`, updatedData);
-      console.log(res.data.message);
+      setMessage(res.data.message || "User updated successfully");
+      setShow(true);
+      return true;
     } catch (err: any) {
       console.error("Error updating user:", err);
-      alert(err.response?.data || "Error updating user");
+      setMessage(err.response?.data?.message || err.response?.data || "Error updating user");
+      setShow(true);
+      return false;
     }
   };
 
@@ -110,19 +133,24 @@ export default function UsersPage() {
   const saveAllChanges = async () => {
     const updates = Object.entries(editedUsers);
     if (updates.length === 0) {
-      // alert("No changes to save.");
       setMessage("No changes to save.");
       setShow(true);
       setIsEditing(false);
       return;
     }
 
+    let successCount = 0;
     for (const [id, user] of updates) {
-      await updateUser(Number(id), { username: user.username, role: user.role });
+      const success = await updateUser(Number(id), { username: user.username, role: user.role });
+      if (success) successCount++;
     }
 
-    // alert("All changes saved successfully!");
-    setMessage("All changes saved successfully!");
+    // Show final message
+    if (successCount === updates.length) {
+      setMessage("All changes saved successfully!");
+    } else {
+      setMessage(`${successCount}/${updates.length} updates succeeded`);
+    }
     setShow(true);
     setIsEditing(false);
     setEditedUsers({});
@@ -256,9 +284,13 @@ export default function UsersPage() {
 
       {/* ===== Add User Popup ===== */}
       <div
-        className={`fixed inset-0 top-[20vh] left-[60vh] space-y-5 max-w-md h-[55vh] ${
+        className={`fixed inset-0 top-[20vh] left-[60vh] overflow-auto scrollbar-hide space-y-5 max-w-md h-[55vh] ${
           showAddDiv ? "block" : "hidden"
         } z-50 w-[70vh] bg-white p-4 shadow-xl rounded-lg`}
+        style={{
+    scrollbarWidth: "none", /* Firefox */
+    msOverflowStyle: "none", /* IE/Edge */
+  }}
       >
         <p className="animate-bounce text-blue-600 w-fit m-auto mb-3">
           Fill the details to add a new user
@@ -292,6 +324,33 @@ export default function UsersPage() {
             ))}
           </SelectContent>
         </Select>
+        {
+          newUser.role === "TEACHER" && (
+            <>
+        <input
+          type="text"
+          placeholder="empcode"
+          value={newTeacher.employeeCode}
+          onChange={(e) => setnewTeacher({ ...newTeacher, employeeCode: e.target.value })}
+          className="border p-2 rounded w-full"
+        />
+        <input
+          type="text"
+          placeholder="specialization"
+          value={newTeacher.subjectSpecialization}
+          onChange={(e) => setnewTeacher({ ...newTeacher, subjectSpecialization: e.target.value })}
+          className="border p-2 rounded w-full"
+        />
+        <input
+          type="date"
+          placeholder="Date of Joining"
+          className="w-full border border-gray-300 p-2 rounded"
+          value={newTeacher.dateOfJoining}
+          onChange={(e) => setnewTeacher({ ...newTeacher, dateOfJoining: e.target.value })}
+        />
+        </>
+          )
+        }
 
         <div className="flex justify-between">
           <button
